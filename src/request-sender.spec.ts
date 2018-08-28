@@ -107,7 +107,7 @@ describe('RequestSender', () => {
 
         it('resolves with the response of the request', () => {
             const response = getResponse({ message: 'foobar' });
-            const event = new Event('load');
+            const event = new ProgressEvent('load');
 
             jest.spyOn(payloadTransformer, 'toResponse').mockReturnValue(response);
 
@@ -123,7 +123,7 @@ describe('RequestSender', () => {
 
         it('rejects with the response of the request if the server returns an error', () => {
             const response = getErrorResponse({ message: 'foobar' });
-            const event = new Event('load');
+            const event = new ProgressEvent('load');
 
             jest.spyOn(payloadTransformer, 'toResponse').mockReturnValue(response);
 
@@ -142,7 +142,7 @@ describe('RequestSender', () => {
 
         it('rejects with the response of the request if it fails', () => {
             const response = getTimeoutResponse();
-            const event = new ErrorEvent('error');
+            const event = new ProgressEvent('error');
 
             jest.spyOn(payloadTransformer, 'toResponse').mockReturnValue(response);
 
@@ -161,7 +161,7 @@ describe('RequestSender', () => {
 
         it('aborts the request when resolving the `timeout` promise', async () => {
             const response = getTimeoutResponse();
-            const event = new Event('abort');
+            const event = new ProgressEvent('abort');
 
             jest.spyOn(payloadTransformer, 'toResponse').mockReturnValue(response);
 
@@ -177,6 +177,42 @@ describe('RequestSender', () => {
             expect(promise).rejects.toEqual(response);
             expect(request.abort).toHaveBeenCalled();
             expect(payloadTransformer.toResponse).toHaveBeenCalledWith(request);
+        });
+
+        it('prepends host to request URL', () => {
+            const options = { host: 'https://foobar.com/' };
+            const relativeUrl = '/api/endpoint';
+
+            requestSender = new RequestSender(requestFactory, payloadTransformer, cookie, options);
+
+            requestSender.sendRequest(relativeUrl);
+
+            expect(requestFactory.createRequest).toHaveBeenCalledWith('https://foobar.com/api/endpoint', {
+                credentials: true,
+                headers: {
+                    Accept: 'application/json, text/plain, */*',
+                    'Content-Type': 'application/json',
+                },
+                method: 'GET',
+            });
+        });
+
+        it('does not prepend host to request URL if it is not relative URL', () => {
+            const options = { host: 'https://foobar.com/' };
+            const absoluteUrl = 'https://helloworld.com/api/endpoint';
+
+            requestSender = new RequestSender(requestFactory, payloadTransformer, cookie, options);
+
+            requestSender.sendRequest(absoluteUrl);
+
+            expect(requestFactory.createRequest).toHaveBeenCalledWith('https://helloworld.com/api/endpoint', {
+                credentials: true,
+                headers: {
+                    Accept: 'application/json, text/plain, */*',
+                    'Content-Type': 'application/json',
+                },
+                method: 'GET',
+            });
         });
     });
 
